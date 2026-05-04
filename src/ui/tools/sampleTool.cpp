@@ -39,13 +39,12 @@ void SampleTool::ToWaveSequenceTool::convertPrepare() {
       return;
     }
     sampleLength = getFileSize(sample);
-    audioBuffer = new unsigned char[sampleLength];
-    if (!audioBuffer) {
+    sampleBuffer = new unsigned char[sampleLength];
+    if (!sampleBuffer) {
       status.setText("Failed to allocate sample buffer!");
       return;
     }
-    fread(audioBuffer, 1, sampleLength, sample);
-    printf("audio buffer: %p\n", audioBuffer);
+    fread(sampleBuffer, 1, sampleLength, sample);
     fclose(sample);
     convert();
   } else {
@@ -55,50 +54,50 @@ void SampleTool::ToWaveSequenceTool::convertPrepare() {
     decoder = new QAudioDecoder(this);
     decoder->setAudioFormat(fmt);
     decoder->setSource(samplePath.text());
+    connect(decoder, qOverload<>(&QAudioDecoder::error), this, &SampleTool::ToWaveSequenceTool::handleDecoderError);
     connect(decoder, &QAudioDecoder::bufferReady, this, &SampleTool::ToWaveSequenceTool::convertFillBuffer);
     decoder->start();
-    switch (decoder->error()) {
-      case QAudioDecoder::NoError:
-        break;
-      default:
-        status.setText(decoder->errorString());
-        decoder->stop();
-        delete decoder;
-        break;
-    }
   }
 }
 
+void SampleTool::ToWaveSequenceTool::handleDecoderError() {
+  status.setText(decoder->errorString());
+  decoder->stop();
+  delete decoder;
+  decoder=NULL;
+}
+
 void SampleTool::ToWaveSequenceTool::convertFillBuffer() {
+  if (!decoder) return;
   auto data = decoder->read();
   sampleLength=data.sampleCount();
-  audioBuffer = new unsigned char[sampleLength];
-  memcpy(audioBuffer, data.data<quint8>(), sampleLength);
-  printf("audio buffer: %p\n", audioBuffer);
+  sampleBuffer = new unsigned char[sampleLength];
+  memcpy(sampleBuffer, data.data<quint8>(), sampleLength);
   convert();
 }
 
 void SampleTool::ToWaveSequenceTool::convert() {
-  if (!audioBuffer) {
-    status.setText("buffer error!");
+  if (!sampleBuffer) {
+    status.setText("Buffer error!");
     return;
   }
-  if (sampleLength>65536) {
-    status.setText("audio too large!");
+  if (sampleLength > 32768*256) {
+    status.setText("Audio too large!");
   } else {
-    printf("audio buffer: %p\n", audioBuffer);
     printf("decoder: read %lu samples\n", sampleLength);
     int waveWidthI=waveWidth.value(),
         waveHeightI=waveHeight.value();
     printf("saving waves as [%d:%d]\n",waveWidthI,waveHeightI);
 
-    int waves = ceil((float)sampleLength/waveWidthI);
+    int waveCount = ceil((float)sampleLength/waveWidthI);
 
-    Furnace::Instrument inst(233, Furnace::InsTypes(insType.currentData().toInt()));
-    Furnace::InsFeatureMacro macroFeature(233);
+    const Furnace::Version fileVersion = 233;
+
+    Furnace::Instrument inst(fileVersion, Furnace::InsTypes(insType.currentData().toInt()));
+    Furnace::InsFeatureMacro macroFeature(fileVersion);
     Furnace::InsFeatureMacro::Macro macroData;
     macroData.code = Furnace::MacroWave;
-    macroData.length = waves;
+    macroData.length = waveCount;
     macroData.loop = macroData.release = 255;
     macroData.mode = macroData.type = Furnace::MacroTypeNormal;
     macroData.open = 1;
@@ -106,46 +105,49 @@ void SampleTool::ToWaveSequenceTool::convert() {
     macroData.wordSize = Furnace::MacroWord_S16;
     macroData.delay = 0;
     macroData.speed = 1;
-    for (int i=0; i<waves; i++) {
+    for (int i=0; i<waveCount; i++) {
       macroData.data[i] = i;
     }
     macroFeature.macroEntries = {macroData};
     inst.addFeature(&macroFeature);
-    Furnace::InsFeatureWaveList waveFeature(233);
+    Furnace::InsFeatureWaveList waveFeature(fileVersion);
     size_t i=0;
-    for (int j=0; j<waves; j++) {
+    for (int j=0; j<waveCount; j++) {
       waveFeature.waveIndexes.push_back(j);
       Furnace::Wavetable w(waveWidthI, waveHeightI);
-      int k=0;
-      for (; k<waveWidthI; k++) {
-        w.setData(k, waveHeightI*(float)audioBuffer[i++]/256.f);
-        if (i>sampleLength) break;
+      for (int k=0; k<waveWidthI; k++) {
+        w.setData(k, waveHeightI*(float)sampleBuffer[i++]/255.f);
+        if (i>sampleLength) {
+          w.setWidth(k);
+          break;
+        }
       }
-      w.setWidth(k);
       waveFeature.waves.push_back(w);
     }
     inst.addFeature(&waveFeature);
     
-
     FILE* ins = fopen(insPath.text().toUtf8().data(), "wb");
     if (!ins) {
-      status.setText("failed to save instrument!");
+      status.setText("Failed to save instrument!");
       return;
     }
     inst.saveFile(ins);
     fclose(ins);
 
-    status.setText("success!");
+    status.setText("Success!");
   }
-  delete[] audioBuffer;
-  audioBuffer = NULL;
+  delete[] sampleBuffer;
+  sampleBuffer = NULL;
   if (!raw.checkState()) {
-    delete decoder;
+    if (decoder) {
+      delete decoder;
+      decoder = NULL;
+    }
   }
 }
 
 SampleTool::ToWaveSequenceTool::ToWaveSequenceTool(QWidget* _parent) {
-  audioBuffer = NULL;
+  sampleBuffer = NULL;
   parent = _parent;
   samplePath.setParent(parent);
   insPath.setParent(parent);
@@ -164,15 +166,16 @@ SampleTool::ToWaveSequenceTool::ToWaveSequenceTool(QWidget* _parent) {
 
   insType.addItem("Generic Sample", 4);
   insType.addItem("PC Engine", 5);
+  insType.addItem("Namco 163", 17);
 
-  QIcon openpix=QIcon::fromTheme(QIcon::ThemeIcon::DocumentOpen);
+  QIcon openIcon=QIcon::fromTheme(QIcon::ThemeIcon::DocumentOpen);
 
-  sPathOpen.setIcon(openpix);
+  sPathOpen.setIcon(openIcon);
   connect(&sPathOpen, &QPushButton::clicked, this, &SampleTool::ToWaveSequenceTool::openSampleFileDialog);
   sPathLayout.addWidget(&samplePath);
   sPathLayout.addWidget(&sPathOpen);
 
-  iPathOpen.setIcon(openpix);
+  iPathOpen.setIcon(openIcon);
   connect(&iPathOpen, &QPushButton::clicked, this, &SampleTool::ToWaveSequenceTool::openInsFileDialog);
   iPathLayout.addWidget(&insPath);
   iPathLayout.addWidget(&iPathOpen);

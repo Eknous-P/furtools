@@ -18,12 +18,14 @@ class SampleTool : public FurTool {
 
         QAudioDecoder* decoder;
         size_t sampleLength;
-        unsigned char* audioBuffer;
+        unsigned char* sampleBuffer;
       private slots:
         void openSampleFileDialog();
         void openInsFileDialog();
 
         void readToBuffer();
+
+        void handleDecoderError();
 
         void convertPrepare();
         void convertFillBuffer();
