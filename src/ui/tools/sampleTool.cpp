@@ -35,14 +35,16 @@ void SampleTool::ToWaveSequenceTool::convertPrepare() {
   if (raw.checkState()) {
     FILE* sample = fopen(samplePath.text().toUtf8().data(), "rb");
     if (!sample) {
-      status.setText("failed to open sample file!");
+      status.setText("Failed to open sample file!");
       return;
     }
-    fseek(sample, 0, SEEK_END);
-    sampleLength=ftell(sample);
-    rewind(sample);
+    sampleLength = getFileSize(sample);
     audioBuffer = new unsigned char[sampleLength];
-    fwrite(audioBuffer, 1, sampleLength, sample);
+    if (!audioBuffer) {
+      status.setText("Failed to allocate sample buffer!");
+      return;
+    }
+    fread(audioBuffer, 1, sampleLength, sample);
     printf("audio buffer: %p\n", audioBuffer);
     fclose(sample);
     convert();
@@ -114,10 +116,12 @@ void SampleTool::ToWaveSequenceTool::convert() {
     for (int j=0; j<waves; j++) {
       waveFeature.waveIndexes.push_back(j);
       Furnace::Wavetable w(waveWidthI, waveHeightI);
-      for (int k=0; k<waveWidthI; k++) {
-        w.setData(k, audioBuffer[i++]);
+      int k=0;
+      for (; k<waveWidthI; k++) {
+        w.setData(k, waveHeightI*(float)audioBuffer[i++]/256.f);
         if (i>sampleLength) break;
       }
+      w.setWidth(k);
       waveFeature.waves.push_back(w);
     }
     inst.addFeature(&waveFeature);
