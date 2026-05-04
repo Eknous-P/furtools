@@ -18,11 +18,11 @@ namespace Furnace {
   InstrumentFeature* Instrument::newFeature(FeatureCode c) {
     switch (c) {
       case InsFeatureCodeNA:
-        return new InsFeatureName;
-      case InsFeatureCodeFM:
-        return new InsFeatureFM;
+        return new InsFeatureName(version);
+      // case InsFeatureCodeFM:
+      //   return new InsFeatureFM(version);
       case InsFeatureCodeMA:
-        return new InsFeatureMacro;
+        return new InsFeatureMacro(version);
       default:
         common_assert(true, "invalid feature code!");
         return NULL;
@@ -55,7 +55,7 @@ namespace Furnace {
       if (featureCode==InsFeatureCodeEN) break;
       feature = newFeature(featureCode);
       if (feature==NULL) return fileInvalidInsFeature; 
-      feature->load(f, version);
+      feature->load(f);
       addFeature(feature);
     } while (1);
     return fileOK;
@@ -87,11 +87,24 @@ namespace Furnace {
   FileOperationError Instrument::saveInternal(FILE* f) {
     fWriteInt<Version>(version, f);
     fWriteInt<InsTypes>(type, f);
+    InsFeatureWaveList* waveList=NULL;
     for (InstrumentFeature*& feature : features) {
       fWriteInt<FeatureCode>(feature->getFeatureCode(), f);
       fWriteInt<u16>(feature->getFeatureSize(), f);
-      FileOperationError err = feature->save(f, version);
+      FileOperationError err = feature->save(f);
+      if (feature->getFeatureCode() == InsFeatureCodeLW || feature->getFeatureCode() == InsFeatureCodeWL) {
+        waveList=(InsFeatureWaveList*)feature;
+      }
       if (err != fileOK) return err;
+    }
+    if (waveList) {
+      fWriteInt<FeatureCode>(InsFeatureCodeEN, f);
+      vector<u32> waveIndexes;
+      for (Wavetable& w:waveList->waves) {
+        waveIndexes.push_back(ftell(f));
+        w.save(f);
+      }
+      waveList->saveContinue(f, waveIndexes);
     }
     return fileOK;
   }

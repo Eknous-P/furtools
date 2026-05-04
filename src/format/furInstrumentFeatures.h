@@ -1,4 +1,5 @@
 #include "furCommon.h"
+#include "furWavetable.h"
 
 namespace Furnace {
   typedef unsigned short FeatureCode;
@@ -20,6 +21,7 @@ namespace Furnace {
   constexpr FeatureCode InsFeatureCodeFD=FEATURE_CODE_DEF('F', 'D');
   constexpr FeatureCode InsFeatureCodeWS=FEATURE_CODE_DEF('W', 'S');
   constexpr FeatureCode InsFeatureCodeSL=FEATURE_CODE_DEF('S', 'L');
+  constexpr FeatureCode InsFeatureCodeWL=FEATURE_CODE_DEF('W', 'L');
   constexpr FeatureCode InsFeatureCodeLS=FEATURE_CODE_DEF('L', 'S');
   constexpr FeatureCode InsFeatureCodeLW=FEATURE_CODE_DEF('L', 'W');
   constexpr FeatureCode InsFeatureCodeMP=FEATURE_CODE_DEF('M', 'P');
@@ -35,31 +37,33 @@ namespace Furnace {
 
   class InstrumentFeature {
     protected:
+      Version fileVersion;
       FeatureCode code;
     public:
       InstrumentFeature();
-      InstrumentFeature(FeatureCode c);
+      InstrumentFeature(Version v, FeatureCode c);
       InstrumentFeature(const InstrumentFeature& f);
 
+      virtual Version getFeatureVersion() const;
       virtual FeatureCode getFeatureCode() const;
       virtual u32 getFeatureSize();
 
-      virtual FileOperationError load(FILE* f, Version fileVersion);
-      virtual FileOperationError save(FILE* f, Version fileVersion);
+      virtual FileOperationError load(FILE* f);
+      virtual FileOperationError save(FILE* f);
   };
 
   class InsFeatureName : public InstrumentFeature {
     public:
       string name;
 
-      InsFeatureName();
-      InsFeatureName(string n);
+      InsFeatureName(Version v);
+      InsFeatureName(Version v, string n);
       InsFeatureName(const InsFeatureName& n);
 
       u32 getFeatureSize();
 
-      FileOperationError load(FILE* f, Version fileVersion);
-      FileOperationError save(FILE* f, Version fileVersion);
+      FileOperationError load(FILE* f);
+      FileOperationError save(FILE* f);
   };
 
   class InsFeatureFM : public InstrumentFeature {
@@ -82,8 +86,8 @@ namespace Furnace {
         u8 ksr, sus, vib, am, egt;
       } fmOperator[4];
 
-      InsFeatureFM();
-      InsFeatureFM(const InsFeatureFM& f);
+      InsFeatureFM(Version v);
+      InsFeatureFM(Version v, const InsFeatureFM& f);
 
       void loadDefualtOPNInstrument();
       void loadDefualtOPLInstrument();
@@ -91,8 +95,8 @@ namespace Furnace {
 
       u32 getFeatureSize();
 
-      FileOperationError load(FILE* f, Version fileVersion);
-      FileOperationError save(FILE* f, Version fileVersion);
+      FileOperationError load(FILE* f);
+      FileOperationError save(FILE* f);
   };
 
   enum InsMacroCodes : u8 {
@@ -153,13 +157,30 @@ namespace Furnace {
 
       vector<Macro> macroEntries;
 
-      InsFeatureMacro();
+      InsFeatureMacro(Version v);
       InsFeatureMacro(const InsFeatureMacro& m);
 
       u32 getFeatureSize();
 
-      FileOperationError load(FILE* f, Version fileVersion);
-      FileOperationError save(FILE* f, Version fileVersion);
+      FileOperationError load(FILE* f);
+      FileOperationError save(FILE* f);
+  };
+
+  class InsFeatureWaveList : public InstrumentFeature {
+    private:
+      size_t wavePtrsPtr;
+    public:
+      vector<u16> waveIndexes;
+      vector<Wavetable> waves;
+
+      InsFeatureWaveList(Version v);
+      InsFeatureWaveList(const InsFeatureWaveList& w);
+
+      u32 getFeatureSize();
+
+      FileOperationError load(FILE* f);
+      FileOperationError save(FILE* f);
+      FileOperationError saveContinue(FILE* f, vector<u32> ptrs);
   };
 
 }

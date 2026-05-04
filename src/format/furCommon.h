@@ -19,6 +19,8 @@ namespace Furnace {
     fileBlockSizeMismatch,
     fileInvalidInsFeature,
     fileInvalidHeaderSize,
+    fileEmptyMacro,
+    fileTooManyItems,
   };
 
   constexpr Version latestVersion=246;

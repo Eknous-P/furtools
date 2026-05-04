@@ -10,8 +10,9 @@ find_package(Qt${QT_VERSION} REQUIRED COMPONENTS Core Gui Widgets Multimedia)
 set(src_path src)
 
 set(project_sources
-  # ${src_path}/format/furWavetable.cpp
-  # ${src_path}/format/furInstrument.cpp
+  ${src_path}/format/furWavetable.cpp
+  ${src_path}/format/furInstrument.cpp
+  ${src_path}/format/furInstrumentFeatures.cpp
 
   ${src_path}/utils/interleave.cpp
 

@@ -1,5 +1,6 @@
 #include "tool.h"
 #include <QAudioDecoder>
+#include "furnace.h"
 
 class SampleTool : public FurTool {
   private:

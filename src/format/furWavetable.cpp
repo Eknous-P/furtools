@@ -1,8 +1,4 @@
 #include "furWavetable.h"
-#include "common.h"
-#include "furCommon.h"
-#include <cstdio>
-#include <cstring>
 
 namespace Furnace {
   Wavetable::Wavetable():
