@@ -1,6 +1,4 @@
 #include "sampleTool.h"
-#include <qaudiodecoder.h>
-#include <qaudioformat.h>
 
 
 void SampleTool::ToWaveSequenceTool::openSampleFileDialog() {
@@ -32,7 +30,9 @@ void SampleTool::ToWaveSequenceTool::openInsFileDialog() {
 void SampleTool::ToWaveSequenceTool::convertPrepare() {
   printf("opening file %s...\n", samplePath.text().toUtf8().data());
   
+#ifdef WITH_QT_MULTIMEDIA
   if (raw.checkState()) {
+#endif
     FILE* sample = fopen(samplePath.text().toUtf8().data(), "rb");
     if (!sample) {
       status.setText("Failed to open sample file!");
@@ -47,6 +47,7 @@ void SampleTool::ToWaveSequenceTool::convertPrepare() {
     fread(sampleBuffer, 1, sampleLength, sample);
     fclose(sample);
     convert();
+#ifdef WITH_QT_MULTIMEDIA
   } else {
     QAudioFormat fmt;
     fmt.setChannelCount(1);
@@ -58,8 +59,10 @@ void SampleTool::ToWaveSequenceTool::convertPrepare() {
     connect(decoder, &QAudioDecoder::bufferReady, this, &SampleTool::ToWaveSequenceTool::convertFillBuffer);
     decoder->start();
   }
+#endif
 }
 
+#ifdef WITH_QT_MULTIMEDIA
 void SampleTool::ToWaveSequenceTool::handleDecoderError() {
   status.setText(decoder->errorString());
   decoder->stop();
@@ -75,6 +78,7 @@ void SampleTool::ToWaveSequenceTool::convertFillBuffer() {
   memcpy(sampleBuffer, data.data<quint8>(), sampleLength);
   convert();
 }
+#endif
 
 void SampleTool::ToWaveSequenceTool::convert() {
   if (!sampleBuffer) {
@@ -138,12 +142,14 @@ void SampleTool::ToWaveSequenceTool::convert() {
   }
   delete[] sampleBuffer;
   sampleBuffer = NULL;
+#ifdef WITH_QT_MULTIMEDIA
   if (!raw.checkState()) {
     if (decoder) {
       delete decoder;
       decoder = NULL;
     }
   }
+#endif
 }
 
 SampleTool::ToWaveSequenceTool::ToWaveSequenceTool(QWidget* _parent) {
@@ -180,17 +186,25 @@ SampleTool::ToWaveSequenceTool::ToWaveSequenceTool(QWidget* _parent) {
   iPathLayout.addWidget(&insPath);
   iPathLayout.addWidget(&iPathOpen);
 
+#ifdef WITH_QT_MULTIMEDIA
   raw.setParent(parent);
+#endif
 
   submit.setParent(parent);
   submit.setText("Convert");
   connect(&submit, &QPushButton::clicked, this, &SampleTool::ToWaveSequenceTool::convertPrepare);
 
   status.setParent(parent);
+#ifdef WITH_QT_MULTIMEDIA
   status.setText("");
+#else
+  status.setText("File will be processed as raw data");
+#endif
 
   layout.addRow("Sample", &sPathLayout);
+#ifdef WITH_QT_MULTIMEDIA
   layout.addRow("Sample is raw data", &raw);
+#endif
   layout.addRow("Width", &waveWidth);
   layout.addRow("Height", &waveHeight);
   layout.addRow("Instrument type", &insType);

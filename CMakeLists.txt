@@ -5,7 +5,11 @@ set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(QT_VERSION 6)
-find_package(Qt${QT_VERSION} REQUIRED COMPONENTS Core Gui Widgets Multimedia)
+find_package(Qt${QT_VERSION} REQUIRED COMPONENTS Core Gui Widgets)
+if (TARGET Qt${QT_VERSION}::Multimedia)
+  message(STATUS "bulding with Qt::Multimedia")
+  add_compile_definitions(WITH_QT_MULTIMEDIA)
+endif()
 
 set(src_path src)
 
@@ -41,8 +45,13 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
   Qt${QT_VERSION}::Core
   Qt${QT_VERSION}::Gui
   Qt${QT_VERSION}::Widgets
+)
+
+if (TARGET Qt${QT_VERSION}::Multimedia)
+target_link_libraries(${PROJECT_NAME} PRIVATE
   Qt${QT_VERSION}::Multimedia
 )
+endif()
 
 target_include_directories(${PROJECT_NAME} PRIVATE
   ${src_path}
