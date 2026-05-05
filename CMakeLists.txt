@@ -6,6 +6,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(QT_VERSION 6)
 find_package(Qt${QT_VERSION} REQUIRED COMPONENTS Core Gui Widgets)
+find_package(Qt${QT_VERSION} COMPONENTS Multimedia)
 if (TARGET Qt${QT_VERSION}::Multimedia)
   message(STATUS "bulding with Qt::Multimedia")
   add_compile_definitions(WITH_QT_MULTIMEDIA)
